@@ -400,6 +400,34 @@ def create_guardrail() -> tuple[str, str]:
     return response["guardrailId"], version
 
 
+def deploy_to_agentcore_runtime() -> str:
+    """Validate and return the deployed PUBLIC MCP Runtime ARN.
+
+    Runtime container creation is performed by the AgentCore deployment
+    configuration in ``.bedrock_agentcore.yaml``. This idempotent function is
+    the Python deployment entrypoint required by the project: it validates the
+    resulting control-plane resource and fails clearly if deployment has not
+    yet completed or has the wrong protocol/network mode.
+    """
+    runtime_arn = config.AGENTCORE_RUNTIME_ARN or os.environ.get("AGENTCORE_RUNTIME_ARN", "")
+    if not runtime_arn:
+        raise RuntimeError(
+            "AGENTCORE_RUNTIME_ARN is not configured. Deploy the checked-in "
+            ".bedrock_agentcore.yaml definition, then add the returned ARN to .env."
+        )
+
+    runtime_id = runtime_arn.rsplit("/", 1)[-1]
+    client = boto3.client("bedrock-agentcore-control", region_name=config.AWS_REGION)
+    runtime = client.get_agent_runtime(agentRuntimeId=runtime_id)
+    if runtime.get("status") != "READY":
+        raise RuntimeError(f"AgentCore Runtime is not READY (status={runtime.get('status', 'UNKNOWN')}).")
+    if runtime.get("networkConfiguration", {}).get("networkMode") != "PUBLIC":
+        raise RuntimeError("AgentCore Runtime must use PUBLIC network mode.")
+    if runtime.get("protocolConfiguration", {}).get("serverProtocol") != "MCP":
+        raise RuntimeError("AgentCore Runtime must use the MCP protocol.")
+    return runtime["agentRuntimeArn"]
+
+
 def configure_memory(runtime_arn: str = "") -> str:
     """Create independent AgentCore SESSION_SUMMARY memory with 7-day retention."""
     client = boto3.client("bedrock-agentcore-control", region_name=config.AWS_REGION)
@@ -443,14 +471,22 @@ def process_request(message: str, customer_id: str = "CUST-001", session_id: str
 
 def main() -> None:
     command = sys.argv[1] if len(sys.argv) > 1 else "test"
-    if command == "guardrail":
+    if command == "deploy":
+        guardrail_id, guardrail_version = create_guardrail()
+        runtime_arn = deploy_to_agentcore_runtime()
+        memory_arn = configure_memory(runtime_arn)
+        configure_observability(runtime_arn)
+        print(f"Runtime ARN: {runtime_arn}")
+        print(f"Guardrail ID/Version: {guardrail_id}/{guardrail_version}")
+        print(f"Memory ARN: {memory_arn}")
+    elif command == "guardrail":
         print(create_guardrail())
     elif command == "memory":
         print(configure_memory(config.AGENTCORE_RUNTIME_ARN))
     elif command == "test":
         print(process_request("What is the return policy for Premium customers?"))
     else:
-        raise SystemExit("Use: guardrail | memory | test")
+        raise SystemExit("Use: deploy | guardrail | memory | test")
 
 
 if __name__ == "__main__":
