@@ -57,6 +57,22 @@ Its remaining checks call `bedrock-agentcore.get_agent_runtime()` and
 in current boto3 1.43.83. Modern AWS Bedrock APIs verify memory and runtime via
 `bedrock-agentcore-control`, validated with 100% pass rate in `tests/test_current_api.py`.
 
+## Screenshots
+
+| Evidence | Description | Link |
+|---|---|---|
+| **01. X-Ray Service Map** | Runtime node & active request traces | [View Screenshot](submission/screenshots/01_xray_service_map.png) |
+| **02. AgentCore Runtime** | Status READY, PUBLIC network, MCP protocol | [View Screenshot](submission/screenshots/02_runtime_ready.png) |
+| **03. Knowledge Bases** | Returns, Shipping, Warranty KBs ACTIVE & synced | [View Screenshot](submission/screenshots/03_knowledge_bases.png) |
+| **04. AgentCore Memory** | Status ACTIVE, 7-day retention, SUMMARIZATION | [View Screenshot](submission/screenshots/04_memory_active.png) |
+| **05. Bedrock Guardrail** | Guardrail v1, content, PII & topics configured | [View Screenshot](submission/screenshots/05_guardrail.png) |
+| **06. DynamoDB WorkflowState** | Optimistic locking version tracking & worker outputs | [View Screenshot](submission/screenshots/06_workflow_state.png) |
+| **07. Live Runtime Test** | Grounded return / refund response | [View Screenshot](submission/screenshots/07_live_runtime_test.png) |
+| **08. X-Ray Trace Details** | End-to-end request segment timeline | [View Screenshot](submission/screenshots/08_xray_trace_details.png) |
+
+Detailed console navigation and screenshot capture instructions are documented in
+[`submission/screenshots/README.md`](submission/screenshots/README.md).
+
 ## Files
 
 - `src/agent_orchestrator.py` — Complete agent graph, tools, guardrail, memory,
@@ -69,6 +85,7 @@ in current boto3 1.43.83. Modern AWS Bedrock APIs verify memory and runtime via
 - `tests/test_current_api.py` — Modern AWS Bedrock verification test suite
 - `reflection.md` — Design, challenges, and production considerations
 - `submission/verification.md` — Live test evidence and resource assertions
+- `submission/screenshots/README.md` — Complete screenshot index and instructions
 
 ## Cost Cleanup
 
