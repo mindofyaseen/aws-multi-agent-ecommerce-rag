@@ -57,7 +57,14 @@ def record_memory_event(session_id: str, customer_id: str, role: str, text: str)
             payload=[{"conversational": {"role": role.upper(), "content": {"text": text}}}],
         )
     except Exception as exc:
-        logger.debug("AgentCore memory recording skipped: %s", exc)
+        # Keep the customer response safe while surfacing the operational
+        # failure in CloudWatch. Never include event text or credentials.
+        logger.warning(
+            "AgentCore Memory write failed for session=%s actor=%s error_type=%s",
+            session_id,
+            customer_id,
+            type(exc).__name__,
+        )
 
 
 def _safe(value: Any) -> Any:

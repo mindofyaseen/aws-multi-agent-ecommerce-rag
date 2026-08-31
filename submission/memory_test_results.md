@@ -1,5 +1,13 @@
 # NovaMart AgentCore Memory — Multi-Turn Live Verification Evidence
 
+## Final live Runtime persistence proof
+
+After granting the Runtime execution role `bedrock-agentcore:CreateEvent`, a
+live MCP request used session `session-memory-runtime-proof-20260831`. Reading
+the same session back from AgentCore Memory returned **2 events**, with both
+`USER` and `ASSISTANT` roles. This verifies that memory is not merely ACTIVE;
+the deployed Runtime can persist its conversation turns successfully.
+
 **Execution Timestamp:** 2026-08-31T12:56:31.780425+00:00
 **Memory ID:** `udacity_agentcore_memory-OBJpmLFy0a`
 **Strategy:** `SUMMARIZATION` (`udacity_agentcore_memory_summary`)

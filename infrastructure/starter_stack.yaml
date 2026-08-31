@@ -146,6 +146,12 @@ Resources:
                   - bedrock-agent:Retrieve
                 Resource: "*"
 
+              # AgentCore Memory - persist user/assistant turns from Runtime
+              - Effect: Allow
+                Action:
+                  - bedrock-agentcore:CreateEvent
+                Resource: "*"
+
               # CloudWatch Logs - agent execution logs (Task 6: Observability)
               - Effect: Allow
                 Action:
