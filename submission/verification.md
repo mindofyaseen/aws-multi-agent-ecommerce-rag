@@ -30,7 +30,7 @@ Score: 85/120 pts (71%)
 
 ### B. Modern AWS API Verification Suite (`tests/test_current_api.py`)
 ```text
-Ran 9 tests in 6.392s
+Ran 10 tests in 9.461s
 OK (100% Passed)
 ```
 - Multi-agent tool registries & model defaults: PASS
@@ -39,6 +39,10 @@ OK (100% Passed)
 - AgentCore Memory (`ACTIVE`, 7-day retention, `SUMMARIZATION` strategy): PASS
 - All three Knowledge Bases (`ACTIVE`): PASS
 - CloudWatch log group `/aws/bedrock/agentcore/udacity-agentcore` and X-Ray traces: PASS
+
+Fresh final verification generated X-Ray trace
+`1-6a959bd1-6850695b08ae3c0069c94641` from a successful live MCP
+policy request (HTTP 200) before running this suite.
 
 ---
 
