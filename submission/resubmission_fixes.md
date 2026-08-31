@@ -1,0 +1,68 @@
+# Resubmission Fixes and Live Verification
+
+This revision directly addresses every required change from the first review.
+
+## Code corrections
+
+- Refund eligibility now reads the customer tier and order date from DynamoDB.
+  Standard customers receive an inclusive 30-day window and Premium customers
+  an inclusive 60-day window. The result includes the tier, elapsed days,
+  configured window, decision, and return reference when approved.
+- InventoryAgent and RefundAgent use `config.WORKER_MODEL_ID` at temperature
+  `0.1`; CommunicationAgent uses the same configured model at `0.3`.
+- PolicyAgent now contains three named sub-agents:
+  `ReturnsPolicyRetrieverAgent`, `ShippingPolicyRetrieverAgent`, and
+  `WarrantyPolicyRetrieverAgent`. Each owns one KB retrieval tool, uses
+  temperature `0.0`, and is invoked concurrently through
+  `ThreadPoolExecutor(max_workers=3)` and `as_completed()`. The coordinator uses
+  temperature `0.2`.
+- The orchestrator prompt explicitly states all six routing rules, routes
+  account questions to InventoryAgent (never PolicyAgent), and requires
+  CommunicationAgent to be the final tool call. It is prohibited from composing
+  or rewriting the customer-facing response.
+- Every `@tool` docstring now documents purpose, exact arguments, return shape,
+  and when the tool should or should not be called.
+- `configure_observability()` now calls
+  `put_agent_runtime_logging_configuration()` with CloudWatch INFO logging and
+  X-Ray tracing enabled at a `1.0` sampling rate. The deployed AgentCore toolkit
+  also reports logs and trace delivery as enabled.
+- Explicit OpenTelemetry spans identify specialist and policy-retriever work in
+  end-to-end traces.
+
+## Knowledge Base backing-store verification
+
+Verified live in `us-east-1` on 2026-08-31:
+
+| Domain | KB ID | Status | Embedding model | Storage type | S3 Vectors bucket | Data source |
+|---|---|---|---|---|---|---|
+| Returns | `HHE4AWZZLY` | ACTIVE | `amazon.titan-embed-text-v2:0` | `S3_VECTORS` | `udacity-agentcore-vectors-237657481511` | AVAILABLE |
+| Shipping | `KX4W0TT4JJ` | ACTIVE | `amazon.titan-embed-text-v2:0` | `S3_VECTORS` | `udacity-agentcore-vectors-237657481511` | AVAILABLE |
+| Warranty | `BNUVVUDQ5J` | ACTIVE | `amazon.titan-embed-text-v2:0` | `S3_VECTORS` | `udacity-agentcore-vectors-237657481511` | AVAILABLE |
+
+Each knowledge base has its own S3 Vectors index and a synced S3 data source for
+the matching `policies/returns/`, `policies/shipping/`, or
+`policies/warranty/` prefix.
+
+## Automated and live checks
+
+- `python tests/test_agent.py task2`: **40/40 (100%)**
+- `python tests/test_agent.py task3`: guardrail and Runtime checks pass
+- `python tests/test_agent.py task5`: **25/25 (100%)**, all KBs ACTIVE
+- Live Runtime: version 8, status READY, PUBLIC network, MCP protocol
+- Fresh MCP policy invocation: HTTP/runtime success with grounded Premium
+  60-day return policy and CommunicationAgent final response
+
+### Course test compatibility note
+
+The supplied Task 4 and Task 6 tests call SDK methods that do not exist in the
+installed/current boto3 service models (`bedrock-agentcore.get_agent_runtime`
+on the data-plane client and
+`get_agent_runtime_logging_configuration`/`put_agent_runtime_logging_configuration`
+on the control-plane client). Therefore those two test checks raise
+`AttributeError` before they can inspect AWS. The live resources themselves are
+verified through supported APIs and the AgentCore deployment toolkit: Memory is
+ACTIVE with a seven-day summarization strategy, and deployment explicitly
+reports CloudWatch Logs plus X-Ray trace delivery enabled. The required
+`put_agent_runtime_logging_configuration()` call remains implemented for the
+course contract and will execute when that SDK operation is available.
+

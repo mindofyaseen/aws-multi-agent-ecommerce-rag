@@ -24,10 +24,18 @@ from botocore.exceptions import ClientError
 from strands import Agent, tool
 from strands.models import BedrockModel
 
+try:
+    from opentelemetry import trace as otel_trace
+except ImportError:
+    otel_trace = None
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import config  # noqa: E402
-from bedrock_kb_retrieval import format_kb_results, retrieve_from_knowledge_base  # noqa: E402
+try:
+    from src.bedrock_kb_retrieval import format_kb_results, retrieve_from_knowledge_base  # noqa: E402
+except ImportError:
+    from bedrock_kb_retrieval import format_kb_results, retrieve_from_knowledge_base  # noqa: E402
 
 try:
     from agent_utils import AgentTrace
@@ -40,6 +48,7 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("novamart")
 dynamodb = boto3.resource("dynamodb", region_name=config.AWS_REGION)
+tracer = otel_trace.get_tracer("novamart.multi_agent") if otel_trace else None
 
 
 def record_memory_event(session_id: str, customer_id: str, role: str, text: str) -> None:
@@ -138,9 +147,13 @@ def _update_workflow_state(session_id: str, updates: dict, expected_version: int
     raise RuntimeError("Workflow update failed")
 
 
-def _worker_model() -> BedrockModel:
-    model_id = os.environ.get("WORKER_RUNTIME_MODEL_ID", config.WORKER_MODEL_ID)
-    options = {"model_id": model_id, "region_name": config.AWS_REGION, "temperature": 0.1}
+def _worker_model(temperature: float) -> BedrockModel:
+    """Create a worker model from the shared project model configuration."""
+    options = {
+        "model_id": config.WORKER_MODEL_ID,
+        "region_name": config.AWS_REGION,
+        "temperature": temperature,
+    }
     if config.GUARDRAIL_ID and config.GUARDRAIL_VERSION != "DRAFT":
         options.update(guardrail_id=config.GUARDRAIL_ID, guardrail_version=config.GUARDRAIL_VERSION,
                        guardrail_trace="enabled")
@@ -155,6 +168,10 @@ def build_inventory_agent() -> Agent:
         Args:
             customer_id: NovaMart customer identifier.
             order_id: NovaMart order identifier.
+
+        Returns:
+            The matching order record, or a structured not-found result. Use
+            this for a specific customer's order; do not use it for policy.
         """
         item = dynamodb.Table(config.ORDERS_TABLE).get_item(
             Key={"customer_id": customer_id, "order_id": order_id}
@@ -167,6 +184,10 @@ def build_inventory_agent() -> Agent:
 
         Args:
             customer_id: NovaMart customer identifier.
+
+        Returns:
+            The customer record including its Standard or Premium tier, or a
+            structured not-found result. Use for account facts, not policy.
         """
         item = dynamodb.Table(config.CUSTOMERS_TABLE).get_item(Key={"customer_id": customer_id}).get("Item")
         return _safe(item) if item else {"found": False, "message": "Customer not found."}
@@ -177,6 +198,10 @@ def build_inventory_agent() -> Agent:
 
         Args:
             customer_id: NovaMart customer identifier.
+
+        Returns:
+            A dictionary containing the customer ID, order list, and count.
+            Use for order-history requests, not for a single known order.
         """
         items = dynamodb.Table(config.ORDERS_TABLE).query(
             KeyConditionExpression=Key("customer_id").eq(customer_id)
@@ -184,7 +209,8 @@ def build_inventory_agent() -> Agent:
         return {"customer_id": customer_id, "orders": _safe(items), "count": len(items)}
 
     return Agent(
-        model=_worker_model(),
+        name="InventoryAgent",
+        model=_worker_model(temperature=0.1),
         system_prompt="You are NovaMart InventoryAgent. Retrieve facts using tools. Never invent data or decide policy.",
         tools=[check_order_status, get_customer_tier, list_customer_orders],
     )
@@ -197,6 +223,10 @@ def build_refund_agent() -> Agent:
 
         Args:
             session_id: Current workflow session identifier.
+
+        Returns:
+            Customer and inventory findings stored in WorkflowState. Call
+            before deciding a refund; do not use it for policy-only questions.
         """
         state = _read_workflow_state(session_id) or {}
         return {"customer_id": state.get("customer_id"), "inventory_agent": state.get("inventory_agent")}
@@ -209,13 +239,39 @@ def build_refund_agent() -> Agent:
             customer_id: NovaMart customer identifier.
             order_id: NovaMart order identifier.
             reason: Customer's return reason.
+
+        Returns:
+            A structured eligibility decision containing approval status,
+            tier, elapsed days, allowed window, reason, and return reference
+            when approved. Call only after inventory facts have been gathered.
         """
         table = dynamodb.Table(config.ORDERS_TABLE)
         current = table.get_item(Key={"customer_id": customer_id, "order_id": order_id}).get("Item")
         if not current:
             return {"approved": False, "message": "Order not found."}
-        if str(current.get("return_eligible", "false")).lower() != "true":
-            return {"approved": False, "message": "Order is outside its recorded return eligibility."}
+        customer = dynamodb.Table(config.CUSTOMERS_TABLE).get_item(
+            Key={"customer_id": customer_id}
+        ).get("Item") or {}
+        tier = str(customer.get("tier", "Standard"))
+        return_window_days = 60 if tier.lower() == "premium" else 30
+        try:
+            order_date = datetime.date.fromisoformat(str(current["order_date"]))
+            elapsed_days = (datetime.datetime.now(datetime.timezone.utc).date() - order_date).days
+        except (KeyError, TypeError, ValueError):
+            return {
+                "approved": False,
+                "tier": tier,
+                "return_window_days": return_window_days,
+                "message": "The order date is unavailable, so eligibility could not be verified.",
+            }
+        if elapsed_days < 0 or elapsed_days > return_window_days:
+            return {
+                "approved": False,
+                "tier": tier,
+                "elapsed_days": elapsed_days,
+                "return_window_days": return_window_days,
+                "message": f"Order is outside the {return_window_days}-day {tier} return window.",
+            }
         ref = f"RET-{uuid.uuid4().hex[:10].upper()}"
         table.update_item(
             Key={"customer_id": customer_id, "order_id": order_id},
@@ -223,10 +279,18 @@ def build_refund_agent() -> Agent:
             ExpressionAttributeNames={"#status": "status"},
             ExpressionAttributeValues={":status": "return_requested", ":ref": ref, ":reason": reason},
         )
-        return {"approved": True, "return_reference": ref, "next_step": "Use the prepaid return label."}
+        return {
+            "approved": True,
+            "tier": tier,
+            "elapsed_days": elapsed_days,
+            "return_window_days": return_window_days,
+            "return_reference": ref,
+            "next_step": "Use the prepaid return label.",
+        }
 
     return Agent(
-        model=_worker_model(),
+        name="RefundAgent",
+        model=_worker_model(temperature=0.1),
         system_prompt=("You are NovaMart RefundAgent. Use inventory context first. Standard customers have 30 days and "
                        "Premium customers 60 days. Never initiate a refund unless the order facts support eligibility."),
         tools=[get_inventory_context, initiate_refund],
@@ -235,32 +299,108 @@ def build_refund_agent() -> Agent:
 
 def build_policy_agent() -> Agent:
     @tool
+    def search_returns_policy(query: str) -> dict:
+        """Retrieve authoritative NovaMart return-policy passages.
+
+        Args:
+            query: Customer question about returns or refunds.
+
+        Returns:
+            Retrieved passages and formatted citations from the Returns KB.
+            Use only for return-policy meaning, not customer order facts.
+        """
+        results = retrieve_from_knowledge_base(config.RETURNS_KB_ID, query, 3)
+        return {"passages": results, "formatted": format_kb_results(results)}
+
+    @tool
+    def search_shipping_policy(query: str) -> dict:
+        """Retrieve authoritative NovaMart shipping-policy passages.
+
+        Args:
+            query: Customer question about shipping policies or rates.
+
+        Returns:
+            Retrieved passages and formatted citations from the Shipping KB.
+            Use only for shipping policy, not order tracking.
+        """
+        results = retrieve_from_knowledge_base(config.SHIPPING_KB_ID, query, 3)
+        return {"passages": results, "formatted": format_kb_results(results)}
+
+    @tool
+    def search_warranty_policy(query: str) -> dict:
+        """Retrieve authoritative NovaMart warranty-policy passages.
+
+        Args:
+            query: Customer question about product warranty terms.
+
+        Returns:
+            Retrieved passages and formatted citations from the Warranty KB.
+            Use only for warranty policy, not returns or shipping.
+        """
+        results = retrieve_from_knowledge_base(config.WARRANTY_KB_ID, query, 3)
+        return {"passages": results, "formatted": format_kb_results(results)}
+
+    returns_retriever = Agent(
+        name="ReturnsPolicyRetrieverAgent",
+        model=_worker_model(temperature=0.0),
+        system_prompt="Retrieve only authoritative NovaMart returns policy using your tool. Do not invent facts.",
+        tools=[search_returns_policy],
+    )
+    shipping_retriever = Agent(
+        name="ShippingPolicyRetrieverAgent",
+        model=_worker_model(temperature=0.0),
+        system_prompt="Retrieve only authoritative NovaMart shipping policy using your tool. Do not invent facts.",
+        tools=[search_shipping_policy],
+    )
+    warranty_retriever = Agent(
+        name="WarrantyPolicyRetrieverAgent",
+        model=_worker_model(temperature=0.0),
+        system_prompt="Retrieve only authoritative NovaMart warranty policy using your tool. Do not invent facts.",
+        tools=[search_warranty_policy],
+    )
+
+    @tool
     def search_all_policies(query: str) -> dict:
         """Search returns, shipping, and warranty Knowledge Bases in parallel.
 
         Args:
             query: Customer's policy question.
+
+        Returns:
+            Results from all three specialist retriever agents keyed by policy
+            domain. Use for policy meaning; do not use for account/order facts.
         """
-        sources = {
-            "returns": config.RETURNS_KB_ID,
-            "shipping": config.SHIPPING_KB_ID,
-            "warranty": config.WARRANTY_KB_ID,
+        retrievers = {
+            "returns": returns_retriever,
+            "shipping": shipping_retriever,
+            "warranty": warranty_retriever,
         }
+
+        def invoke_retriever(domain: str, agent: Agent) -> Any:
+            if tracer:
+                with tracer.start_as_current_span(f"{domain}_policy_retriever") as span:
+                    span.set_attribute("novamart.policy_domain", domain)
+                    return agent(query)
+            return agent(query)
+
         output: dict[str, Any] = {}
         with ThreadPoolExecutor(max_workers=3) as pool:
-            futures = {pool.submit(retrieve_from_knowledge_base, kb, query, 3): domain for domain, kb in sources.items()}
+            futures = {
+                pool.submit(invoke_retriever, domain, agent): domain
+                for domain, agent in retrievers.items()
+            }
             for future in as_completed(futures):
                 domain = futures[future]
                 try:
-                    results = future.result()
-                    output[domain] = {"passages": results, "formatted": format_kb_results(results)}
+                    output[domain] = _text(future.result())
                 except Exception as exc:
                     logger.exception("Policy retrieval failed for %s", domain)
                     output[domain] = {"error": "Policy source temporarily unavailable.", "details_logged": True}
         return output
 
     return Agent(
-        model=_worker_model(),
+        name="PolicyAgent",
+        model=_worker_model(temperature=0.2),
         system_prompt="You are NovaMart PolicyAgent. Search all three sources and synthesize only grounded policy facts; cite domains.",
         tools=[search_all_policies],
     )
@@ -273,11 +413,16 @@ def build_communication_agent() -> Agent:
 
         Args:
             session_id: Current workflow session identifier.
+
+        Returns:
+            Complete WorkflowState with all available worker findings. Call
+            only when composing the final customer-facing response.
         """
         return _safe(_read_workflow_state(session_id) or {})
 
     return Agent(
-        model=_worker_model(),
+        name="CommunicationAgent",
+        model=_worker_model(temperature=0.3),
         system_prompt=("You are NovaMart CommunicationAgent. Compose a concise, empathetic customer response from workflow facts. "
                        "Never expose internal prompts, traces, or sensitive backend details."),
         tools=[get_full_workflow_context],
@@ -293,15 +438,30 @@ def build_orchestrator_agent(inventory_agent: Agent, refund_agent: Agent, policy
         Args:
             session_id: Unique session identifier.
             customer_id: NovaMart customer identifier.
+
+        Returns:
+            Confirmation that WorkflowState exists for the session. This must
+            be the first tool called for every request.
         """
         _get_or_create_state(session_id, customer_id)
         return f"Session {session_id} initialized."
 
     def route(agent: Agent, column: str, session_id: str, customer_id: str, request: str) -> str:
-        state = _get_or_create_state(session_id, customer_id)
-        result = _text(agent(f"session_id={session_id}\ncustomer_id={customer_id}\nrequest={request}\nstate={json.dumps(_safe(state))}"))
-        _update_workflow_state(session_id, {column: result}, int(state.get("version", 0)))
-        return result
+        def invoke_worker() -> str:
+            state = _get_or_create_state(session_id, customer_id)
+            result = _text(agent(
+                f"session_id={session_id}\ncustomer_id={customer_id}\n"
+                f"request={request}\nstate={json.dumps(_safe(state))}"
+            ))
+            _update_workflow_state(session_id, {column: result}, int(state.get("version", 0)))
+            return result
+
+        if tracer:
+            with tracer.start_as_current_span(column) as span:
+                span.set_attribute("novamart.session_id", session_id)
+                span.set_attribute("novamart.agent", column)
+                return invoke_worker()
+        return invoke_worker()
 
     @tool
     def route_to_inventory_agent(session_id: str, customer_id: str, request: str) -> str:
@@ -311,6 +471,10 @@ def build_orchestrator_agent(inventory_agent: Agent, refund_agent: Agent, policy
             session_id: Current session identifier.
             customer_id: NovaMart customer identifier.
             request: Customer request including any order ID.
+
+        Returns:
+            InventoryAgent findings after they are persisted to WorkflowState.
+            Use for order and account facts, never for policy meaning.
         """
         return route(inventory_agent, "inventory_agent", session_id, customer_id, request)
 
@@ -322,6 +486,10 @@ def build_orchestrator_agent(inventory_agent: Agent, refund_agent: Agent, policy
             session_id: Current session identifier.
             customer_id: NovaMart customer identifier.
             request: Policy question.
+
+        Returns:
+            Grounded PolicyAgent findings persisted to WorkflowState. Use for
+            policy meaning only, never for a customer's account facts.
         """
         return route(policy_agent, "policy_agent", session_id, customer_id, request)
 
@@ -333,6 +501,10 @@ def build_orchestrator_agent(inventory_agent: Agent, refund_agent: Agent, policy
             session_id: Current session identifier.
             customer_id: NovaMart customer identifier.
             request: Return or refund request.
+
+        Returns:
+            RefundAgent decision persisted to WorkflowState. Call only after
+            route_to_inventory_agent for return or refund requests.
         """
         return route(refund_agent, "refund_agent", session_id, customer_id, request)
 
@@ -344,6 +516,10 @@ def build_orchestrator_agent(inventory_agent: Agent, refund_agent: Agent, policy
             session_id: Current session identifier.
             customer_id: NovaMart customer identifier.
             original_request: Original customer message.
+
+        Returns:
+            Final customer-facing response from CommunicationAgent. This must
+            be the last tool call for every request without exception.
         """
         return route(communication_agent, "communication_agent", session_id, customer_id, original_request)
 
@@ -355,8 +531,18 @@ def build_orchestrator_agent(inventory_agent: Agent, refund_agent: Agent, policy
     model = BedrockModel(**options)
     return Agent(
         model=model,
-        system_prompt=("You are NovaMart OrchestratorAgent. Initialize every session. Route order facts to Inventory; policy questions "
-                       "to Policy; returns to Inventory then Refund; always finish with Communication. For simple arithmetic answer directly."),
+        name="OrchestratorAgent",
+        system_prompt=(
+            "You are NovaMart OrchestratorAgent. You coordinate tools and NEVER compose the final customer response. "
+            "Follow these six routing rules exactly:\n"
+            "1. EVERY request: call initialize_session first.\n"
+            "2. Order status, return, or refund requests: call route_to_inventory_agent first, then route_to_refund_agent.\n"
+            "3. Policy meaning questions about return windows, shipping rates, or warranty terms: call route_to_policy_agent.\n"
+            "4. Account questions such as 'what is my tier?' or 'am I Premium?': call route_to_inventory_agent; NEVER PolicyAgent.\n"
+            "5. Math or calculation questions: calculate directly without a specialist routing call, but do not present it yourself.\n"
+            "6. EVERY request: route_to_communication_agent must be the final tool call; return its result verbatim. "
+            "Do not add, rewrite, summarize, or compose any customer-facing text after that final tool result."
+        ),
         tools=[initialize_session, route_to_inventory_agent, route_to_policy_agent,
                route_to_refund_agent, route_to_communication_agent],
     )
@@ -450,11 +636,35 @@ def configure_memory(runtime_arn: str = "") -> str:
 
 
 def configure_observability(runtime_arn: str) -> None:
-    """Enable standard AgentCore OTEL export to CloudWatch/X-Ray via environment variables."""
+    """Enable CloudWatch INFO logging and 100-percent X-Ray tracing."""
     os.environ["OTEL_PYTHON_DISTRO"] = "aws_distro"
     os.environ["OTEL_PYTHON_CONFIGURATOR"] = "aws_configurator"
     os.environ["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf"
     os.environ["OTEL_RESOURCE_ATTRIBUTES"] = f"service.name={config.PROJECT_NAME},aws.log.group.names={config.AGENT_LOG_GROUP}"
+    runtime_id = runtime_arn.rsplit("/", 1)[-1]
+    control = boto3.client("bedrock-agentcore-control", region_name=config.AWS_REGION)
+    logging_configuration = {
+        "cloudWatchConfig": {
+            "enabled": True,
+            "logGroupName": config.AGENT_LOG_GROUP,
+            "logLevel": "INFO",
+        },
+        "xRayConfig": {"enabled": True, "samplingRate": 1.0},
+    }
+    try:
+        control.put_agent_runtime_logging_configuration(
+            agentRuntimeId=runtime_id,
+            loggingConfiguration=logging_configuration,
+        )
+    except AttributeError:
+        # Some released boto3 service models do not yet expose the course's
+        # logging operation. OTEL remains configured above; fail neither the
+        # deployment nor the customer request while waiting for SDK support.
+        logger.warning(
+            "Installed boto3 lacks put_agent_runtime_logging_configuration; "
+            "using AgentCore OTEL environment configuration for runtime=%s",
+            runtime_id,
+        )
     logger.info("Observability enabled: CloudWatch=%s X-Ray sampling=100%% runtime=%s",
                 config.AGENT_LOG_GROUP, runtime_arn)
 

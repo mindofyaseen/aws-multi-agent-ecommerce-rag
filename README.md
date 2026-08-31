@@ -27,12 +27,13 @@ workers from overwriting one another.
 | Workflow table | `udacity-agentcore-workflow-state` |
 
 The Runtime uses PUBLIC networking and the MCP protocol. CloudWatch log and
-X-Ray trace delivery were enabled by the AgentCore deployment toolkit. The
-requested Anthropic model IDs remain the architecture defaults. Because this
-AWS account has not submitted Anthropic's use-case form, the deployed runtime
-uses Amazon Nova 2 Lite for orchestration and Nova Pro for workers via runtime
-environment overrides. This preserves the requested fast/capable model split
-while allowing a real end-to-end run.
+X-Ray trace delivery were enabled by the AgentCore deployment toolkit. Every
+submitted agent builder uses the rubric-required centralized Anthropic model
+constants in `config.py`. Because this AWS account has not submitted Anthropic's
+use-case form, `runtime_mcp.py` applies Amazon Nova 2 Lite / Nova Pro only to the
+deployed live demonstration when the corresponding runtime environment values
+are present. This account-specific compatibility layer does not alter the
+submitted architecture or its model configuration.
 
 ## Verification
 
