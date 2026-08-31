@@ -6,18 +6,18 @@ Save genuine screenshots directly into this directory (`submission/screenshots/`
 
 ---
 
-### Screenshot Index
+### Screenshot Index (Status: USER CAPTURE PENDING)
 
-| Filename | AWS Console Page | Resource Demonstrated | Rubric Requirement | Capture Date |
+| Filename | AWS Console Page | Resource Demonstrated | Rubric Requirement | Status |
 |---|---|---|---|---|
-| `01_xray_service_map.png` | CloudWatch / X-Ray Service Map | `novamart_multi_agent.DEFAULT` | Task 6 — Observability & Tracing | 2026-08-31 |
-| `02_runtime_ready.png` | Bedrock AgentCore Runtimes | `novamart_multi_agent-XTb76lG2Mi` | Task 3 — AgentCore Deployment | 2026-08-31 |
-| `03_knowledge_bases.png` | Bedrock Knowledge Bases | 3 KBs (`HHE4AWZZLY`, `KX4W0TT4JJ`, `BNUVVUDQ5J`) | Task 5 — Bedrock Knowledge Bases | 2026-08-31 |
-| `04_memory_active.png` | Bedrock AgentCore Memory | `udacity_agentcore_memory-OBJpmLFy0a` | Task 4 — AgentCore Memory | 2026-08-31 |
-| `05_guardrail.png` | Bedrock Guardrails | `udacity-agentcore-guardrail` (`o5xeg6zlw97l` v1) | Task 3 — Bedrock Guardrails | 2026-08-31 |
-| `06_workflow_state.png` | DynamoDB Table Item Explorer | `udacity-agentcore-workflow-state` | Task 2 — Optimistic Locking | 2026-08-31 |
-| `07_live_runtime_test.png` | Terminal / AgentCore Test UI | MCP `customer_support` invocation | Live System Demonstration | 2026-08-31 |
-| `08_xray_trace_details.png` | CloudWatch / X-Ray Trace Detail | Live Trace ID (e.g. `1-6a957407-448fd6b623e66f7faa6d7658`) | Task 6 — Detailed Trace Breakdown | 2026-08-31 |
+| `01_xray_service_map.png` | CloudWatch / X-Ray Service Map | `novamart_multi_agent.DEFAULT` | Task 6 — Observability & Tracing | USER CAPTURE PENDING |
+| `02_runtime_ready.png` | Bedrock AgentCore Runtimes | `novamart_multi_agent-XTb76lG2Mi` | Task 3 — AgentCore Deployment | USER CAPTURE PENDING |
+| `03_knowledge_bases.png` | Bedrock Knowledge Bases | 3 KBs (`HHE4AWZZLY`, `KX4W0TT4JJ`, `BNUVVUDQ5J`) | Task 5 — Bedrock Knowledge Bases | USER CAPTURE PENDING |
+| `04_memory_active.png` | Bedrock AgentCore Memory | `udacity_agentcore_memory-OBJpmLFy0a` | Task 4 — AgentCore Memory | USER CAPTURE PENDING |
+| `05_guardrail.png` | Bedrock Guardrails | `udacity-agentcore-guardrail` (`o5xeg6zlw97l` v1) | Task 3 — Bedrock Guardrails | USER CAPTURE PENDING |
+| `06_workflow_state.png` | DynamoDB Table Item Explorer | `udacity-agentcore-workflow-state` | Task 2 — Optimistic Locking | USER CAPTURE PENDING |
+| `07_live_runtime_test.png` | Terminal / AgentCore Test UI | MCP `customer_support` invocation | Live System Demonstration | USER CAPTURE PENDING |
+| `08_xray_trace_details.png` | CloudWatch / X-Ray Trace Detail | Live Trace ID (e.g. `1-6a957407-448fd6b623e66f7faa6d7658`) | Task 6 — Detailed Trace Breakdown | USER CAPTURE PENDING |
 
 ---
 

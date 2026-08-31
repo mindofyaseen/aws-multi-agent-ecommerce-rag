@@ -5,6 +5,7 @@ Modern AWS API verification test suite for the NovaMart Multi-Agent System.
 
 Validates all 6 tasks against current (boto3 1.43.83+) AWS Bedrock APIs:
   - Task 2: Multi-Agent Orchestration & tools
+  - Task 2: DynamoDB Optimistic Locking & version increments
   - Task 3: AgentCore Runtime & Bedrock Guardrail
   - Task 4: AgentCore SESSION_SUMMARY Memory
   - Task 5: Three active Bedrock Knowledge Bases (Returns, Shipping, Warranty)
@@ -16,6 +17,7 @@ import sys
 import unittest
 import boto3
 import datetime
+import uuid
 from pathlib import Path
 
 # Add project root and src to path
@@ -60,6 +62,27 @@ class TestTask2Orchestration(unittest.TestCase):
     def test_model_architecture_defaults(self):
         self.assertIn("haiku", config.ORCHESTRATOR_MODEL_ID.lower())
         self.assertIn("sonnet", config.WORKER_MODEL_ID.lower())
+
+    def test_optimistic_locking_concurrency(self):
+        """Verify optimistic locking version increment and conflict retry."""
+        test_session = f"test-lock-{uuid.uuid4().hex}"
+        # 1. Initialize session (version 0)
+        ao._create_workflow_state(test_session, "CUST-001")
+        state0 = ao._read_workflow_state(test_session)
+        self.assertEqual(int(state0.get('version', -1)), 0)
+
+        # 2. Worker 1 update (version 0 -> 1)
+        res1 = ao._update_workflow_state(test_session, {"inventory_agent": "Order ORD-12345 verified eligible."}, expected_version=0)
+        self.assertEqual(int(res1.get('version', -1)), 1)
+        self.assertIn("Order ORD-12345 verified eligible.", res1.get('inventory_agent', ''))
+
+        # 3. Worker 2 update with stale expected_version=0 (triggers conflict retry to version 1 -> 2)
+        res2 = ao._update_workflow_state(test_session, {"refund_agent": "Refund REF-999 approved."}, expected_version=0)
+        self.assertEqual(int(res2.get('version', -1)), 2)
+        # Check both fields exist and inventory was not overwritten
+        state2 = ao._read_workflow_state(test_session)
+        self.assertIn("Order ORD-12345 verified eligible.", state2.get('inventory_agent', ''))
+        self.assertIn("Refund REF-999 approved.", state2.get('refund_agent', ''))
 
 
 class TestTask3RuntimeAndGuardrail(unittest.TestCase):
