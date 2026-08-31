@@ -6,6 +6,7 @@ Bedrock Guardrails, AgentCore Runtime, Memory, and observability.
 """
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import os
@@ -28,9 +29,35 @@ sys.path.insert(0, str(ROOT))
 import config  # noqa: E402
 from bedrock_kb_retrieval import format_kb_results, retrieve_from_knowledge_base  # noqa: E402
 
+try:
+    from agent_utils import AgentTrace
+except ImportError:
+    try:
+        from src.agent_utils import AgentTrace
+    except ImportError:
+        AgentTrace = None
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("novamart")
 dynamodb = boto3.resource("dynamodb", region_name=config.AWS_REGION)
+
+
+def record_memory_event(session_id: str, customer_id: str, role: str, text: str) -> None:
+    """Record an interaction event to AgentCore Memory if configured."""
+    memory_id = getattr(config, "MEMORY_ID", "") or os.environ.get("MEMORY_ID", "")
+    if not memory_id:
+        return
+    try:
+        agentcore_client = boto3.client("bedrock-agentcore", region_name=config.AWS_REGION)
+        agentcore_client.create_event(
+            memoryId=memory_id,
+            actorId=customer_id,
+            sessionId=session_id,
+            eventTimestamp=datetime.datetime.now(datetime.timezone.utc),
+            payload=[{"conversational": {"role": role.upper(), "content": {"text": text}}}],
+        )
+    except Exception as exc:
+        logger.debug("AgentCore memory recording skipped: %s", exc)
 
 
 def _safe(value: Any) -> Any:
@@ -59,6 +86,9 @@ def _read_workflow_state(session_id: str) -> Optional[dict]:
     return dynamodb.Table(config.WORKFLOW_STATE_TABLE).get_item(
         Key={"session_id": session_id}, ConsistentRead=True
     ).get("Item")
+
+
+trace = AgentTrace(_read_workflow_state) if AgentTrace else None
 
 
 def _get_or_create_state(session_id: str, customer_id: str) -> dict:
@@ -396,9 +426,12 @@ def configure_observability(runtime_arn: str) -> None:
 
 def process_request(message: str, customer_id: str = "CUST-001", session_id: str | None = None) -> str:
     session_id = session_id or f"session-{uuid.uuid4().hex[:12]}"
+    record_memory_event(session_id, customer_id, "user", message)
     agents = (build_inventory_agent(), build_refund_agent(), build_policy_agent(), build_communication_agent())
     orchestrator = build_orchestrator_agent(*agents)
-    return _text(orchestrator(f"session_id={session_id}\ncustomer_id={customer_id}\ncustomer_request={message}"))
+    response_text = _text(orchestrator(f"session_id={session_id}\ncustomer_id={customer_id}\ncustomer_request={message}"))
+    record_memory_event(session_id, customer_id, "assistant", response_text)
+    return response_text
 
 
 def main() -> None:

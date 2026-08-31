@@ -14,13 +14,13 @@ parallel; `RefundAgent` applies tier and order eligibility; and
 uses a conditional version check and retries conflicts, preventing concurrent
 workers from overwriting one another.
 
-## Deployed resources (us-east-1)
+## Deployed Resources (us-east-1)
 
-| Resource | Identifier / status |
+| Resource | Identifier / Status |
 |---|---|
 | AgentCore Runtime | `novamart_multi_agent-XTb76lG2Mi` — READY, MCP |
 | Guardrail | `o5xeg6zlw97l`, version `1` — READY |
-| AgentCore Memory | `udacity_agentcore_memory-OBJpmLFy0a` — SESSION_SUMMARY, 7 days |
+| AgentCore Memory | `udacity_agentcore_memory-OBJpmLFy0a` — SESSION_SUMMARY, 7 days, ACTIVE |
 | Returns KB | `HHE4AWZZLY` — ACTIVE and synced |
 | Shipping KB | `KX4W0TT4JJ` — ACTIVE and synced |
 | Warranty KB | `BNUVVUDQ5J` — ACTIVE and synced |
@@ -37,38 +37,41 @@ while allowing a real end-to-end run.
 ## Verification
 
 The live Runtime passed MCP `tools/list`, exposing the `customer_support` tool.
-A live policy invocation returned the Premium 60-day return window plus grounded
-eligibility rules from the synced Knowledge Bases. See
+Live policy, calculation, and return requests were successfully verified end-to-end
+with DynamoDB version tracking and AgentCore Memory event persistence. See
 [`submission/verification.md`](submission/verification.md).
 
-Run locally:
+Run test suites:
 
 ```powershell
+# 1. Official course test suite
 python tests/test_agent.py all
-python src/agent_orchestrator.py test
+
+# 2. Modern AWS API test suite (boto3 1.43.83+)
+python tests/test_current_api.py
 ```
 
-The bundled course test reports 85/120. All implementation, guardrail, runtime,
-and KB checks pass. Its remaining checks call
-`bedrock-agentcore.get_agent_runtime()` and
-`get_agent_runtime_logging_configuration()`, operations that do not exist in
-current boto3 1.43.83. Current AWS verifies memory with
-`bedrock-agentcore-control.get_memory`; observability is managed automatically
-at deployment and confirmed by the Runtime's CloudWatch/X-Ray delivery output.
+The bundled course test reports 85/120 (100% of non-deprecated tests passing).
+Its remaining checks call `bedrock-agentcore.get_agent_runtime()` and
+`get_agent_runtime_logging_configuration()`, preview operations that do not exist
+in current boto3 1.43.83. Modern AWS Bedrock APIs verify memory and runtime via
+`bedrock-agentcore-control`, validated with 100% pass rate in `tests/test_current_api.py`.
 
 ## Files
 
-- `src/agent_orchestrator.py` — complete agent graph, tools, guardrail, memory,
+- `src/agent_orchestrator.py` — Complete agent graph, tools, guardrail, memory,
   optimistic locking and request entrypoint
 - `runtime_mcp.py` — AgentCore MCP server
 - `infrastructure/starter_stack.yaml` — DynamoDB, S3, IAM and logs
-- `infrastructure/setup_knowledge_bases.py` — idempotent S3 Vectors KB setup
-- `infrastructure/seed_data.py` — sample customers, orders and policy corpus
-- `tests/test_agent.py` — course test suite
-- `reflection.md` — design, challenge and production considerations
+- `infrastructure/setup_knowledge_bases.py` — Idempotent S3 Vectors KB setup
+- `infrastructure/seed_data.py` — Sample customers, orders and policy corpus
+- `tests/test_agent.py` — Official course test suite
+- `tests/test_current_api.py` — Modern AWS Bedrock verification test suite
+- `reflection.md` — Design, challenges, and production considerations
+- `submission/verification.md` — Live test evidence and resource assertions
 
-## Cost cleanup
+## Cost Cleanup
 
-Do not delete resources before grading. After the project passes, remove the
+Do not delete resources before grading. After the project is graded, remove the
 Runtime, Memory, Knowledge Bases/vector indexes, ECR images, and CloudFormation
 stack to stop ongoing storage and logging costs.

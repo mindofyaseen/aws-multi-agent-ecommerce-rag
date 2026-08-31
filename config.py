@@ -128,6 +128,8 @@ GUARDRAIL_VERSION = _exports.get(f"{PROJECT_NAME}-GuardrailVersion", os.environ.
 
 # Task 4: AgentCore Memory namespace
 MEMORY_NAMESPACE = f"{PROJECT_NAME}-memory"
+MEMORY_ID = os.environ.get("MEMORY_ID", "")
+MEMORY_ARN = os.environ.get("MEMORY_ARN", "")
 
 # ─────────────────────────────────────────────
 # GUARDRAIL SETTINGS
