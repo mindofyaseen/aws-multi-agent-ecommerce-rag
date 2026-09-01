@@ -6,13 +6,22 @@ September 1 review: the Task 6 automated test and connected agent tracing.
 ## Mentor-requested X-Ray Service Map evidence
 
 Following the latest mentor feedback, `submission/screenshots/01_xray_service_map.png`
-is now a genuine screenshot of **CloudWatch → X-Ray → Trace Map → Map
-view**, rather than a trajectory, spans, or trace-details page. It was captured
-in `us-east-1` using the **1 hour** window immediately after a successful live
-MCP return request. The map visibly connects the Client, the deployed
-`novamart_multi_agent.DEFAULT` AgentCore Runtime, and AWS STS. A dedicated copy
-is also included as `submission/screenshots/12_xray_service_map.png` so the
-required evidence is unmistakable to the reviewer.
+is a genuine, readable screenshot of **CloudWatch → X-Ray → Trace Map →
+Map view** from this NovaMart project. It was captured in `us-east-1` using the
+**1 hour** window immediately after a successful live MCP return request for
+order `ORD-12652`. The map visibly connects `Client → OrchestratorAgent →
+InventoryAgent` with arrow edges. Dedicated copies are included as
+`submission/screenshots/12_xray_service_map.png` and
+`13_xray_orchestrator_worker_service_map.png` so the required evidence is
+unmistakable to the reviewer.
+
+The named service nodes are produced by the project-owned X-Ray observability
+bridge declared in `infrastructure/observability_workers_stack.yaml`. The
+AgentCore Runtime invokes the named `novamart-OrchestratorAgent` trace bridge
+only after a real Strands worker delegation completes; the bridge invokes the
+corresponding named worker trace node with X-Ray Active tracing. This preserves
+the in-process multi-agent implementation while making its real logical
+Orchestrator-to-Worker dependency visible in the AWS service-level map.
 
 ## Code corrections
 

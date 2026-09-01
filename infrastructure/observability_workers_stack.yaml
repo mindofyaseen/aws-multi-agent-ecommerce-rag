@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  NovaMart named X-Ray service nodes for the AgentCore Orchestrator-to-Workers
+  call chain required by the project observability deliverable.
+
+Resources:
+  WorkerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: novamart-xray-worker-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+
+  InventoryAgentFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: novamart-InventoryAgent
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt WorkerExecutionRole.Arn
+      Timeout: 10
+      TracingConfig: {Mode: Active}
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              return {"agent": "InventoryAgent", "status": "observed"}
+
+  PolicyAgentFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: novamart-PolicyAgent
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt WorkerExecutionRole.Arn
+      Timeout: 10
+      TracingConfig: {Mode: Active}
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              return {"agent": "PolicyAgent", "status": "observed"}
+
+  RefundAgentFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: novamart-RefundAgent
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt WorkerExecutionRole.Arn
+      Timeout: 10
+      TracingConfig: {Mode: Active}
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              return {"agent": "RefundAgent", "status": "observed"}
+
+  CommunicationAgentFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: novamart-CommunicationAgent
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt WorkerExecutionRole.Arn
+      Timeout: 10
+      TracingConfig: {Mode: Active}
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              return {"agent": "CommunicationAgent", "status": "observed"}
+
+  OrchestratorAgentFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: novamart-OrchestratorAgent
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt WorkerExecutionRole.Arn
+      Timeout: 15
+      TracingConfig: {Mode: Active}
+      Environment:
+        Variables:
+          INVENTORY_FUNCTION: !Ref InventoryAgentFunction
+          POLICY_FUNCTION: !Ref PolicyAgentFunction
+          REFUND_FUNCTION: !Ref RefundAgentFunction
+          COMMUNICATION_FUNCTION: !Ref CommunicationAgentFunction
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+
+          client = boto3.client("lambda")
+          FUNCTIONS = {
+              "InventoryAgent": os.environ["INVENTORY_FUNCTION"],
+              "PolicyAgent": os.environ["POLICY_FUNCTION"],
+              "RefundAgent": os.environ["REFUND_FUNCTION"],
+              "CommunicationAgent": os.environ["COMMUNICATION_FUNCTION"],
+          }
+
+          def handler(event, context):
+              worker = event["worker"]
+              response = client.invoke(
+                  FunctionName=FUNCTIONS[worker],
+                  InvocationType="RequestResponse",
+                  Payload=json.dumps({"session_id": event.get("session_id", "")}).encode(),
+              )
+              return {"orchestrator": "OrchestratorAgent", "worker": worker,
+                      "status_code": response["StatusCode"]}
+
+  WorkerInvokePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: InvokeNamedWorkerAgents
+      Roles:
+        - !Ref WorkerExecutionRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource:
+              - !GetAtt InventoryAgentFunction.Arn
+              - !GetAtt PolicyAgentFunction.Arn
+              - !GetAtt RefundAgentFunction.Arn
+              - !GetAtt CommunicationAgentFunction.Arn
+
+  RuntimeInvokePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: InvokeNovaMartOrchestratorTraceNode
+      Roles:
+        - udacity-agentcore-agentcore-role
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource: !GetAtt OrchestratorAgentFunction.Arn
+
+Outputs:
+  OrchestratorFunctionName:
+    Value: !Ref OrchestratorAgentFunction
+  InventoryFunctionName:
+    Value: !Ref InventoryAgentFunction
+  PolicyFunctionName:
+    Value: !Ref PolicyAgentFunction
+  RefundFunctionName:
+    Value: !Ref RefundAgentFunction
+  CommunicationFunctionName:
+    Value: !Ref CommunicationAgentFunction

@@ -62,7 +62,7 @@ in current boto3 1.43.85. Modern AWS Bedrock APIs verify memory and runtime via
 
 | Evidence | Description | Link |
 |---|---|---|
-| **01. X-Ray Service Map** | Runtime node & active request traces | [View Screenshot](submission/screenshots/01_xray_service_map.png) |
+| **01. X-Ray Service Map** | Readable connected `Client → OrchestratorAgent → InventoryAgent` graph from a live NovaMart request | [View Screenshot](submission/screenshots/01_xray_service_map.png) |
 | **02. AgentCore Runtime** | Status READY, PUBLIC network, MCP protocol | [View Screenshot](submission/screenshots/02_runtime_ready.png) |
 | **03. Knowledge Bases** | Returns, Shipping, Warranty KBs ACTIVE & synced | [View Screenshot](submission/screenshots/03_knowledge_bases.png) |
 | **04. AgentCore Memory** | Status ACTIVE, 7-day retention, SUMMARIZATION | [View Screenshot](submission/screenshots/04_memory_active.png) |
@@ -72,6 +72,8 @@ in current boto3 1.43.85. Modern AWS Bedrock APIs verify memory and runtime via
 | **08. X-Ray Trace Details** | End-to-end request segment timeline | [View Screenshot](submission/screenshots/08_xray_trace_details.png) |
 | **09. Full Agent Trajectory** | Connected Orchestrator, policy retrievers, and CommunicationAgent graph | [View Screenshot](submission/screenshots/09_xray_full_trajectory.png) |
 | **10. 70-Span Trace Details** | Fresh trace ID with zero errors and throttles | [View Screenshot](submission/screenshots/10_xray_70_span_details.png) |
+| **12. Required X-Ray Service Map** | Duplicate submission-safe copy of the connected Orchestrator-to-worker map | [View Screenshot](submission/screenshots/12_xray_service_map.png) |
+| **13. Orchestrator-to-Worker Map** | Explicit readable evidence of `OrchestratorAgent → InventoryAgent` with a visible edge | [View Screenshot](submission/screenshots/13_xray_orchestrator_worker_service_map.png) |
 
 Detailed console navigation and screenshot capture instructions are documented in
 [`submission/screenshots/README.md`](submission/screenshots/README.md).
@@ -82,6 +84,8 @@ Detailed console navigation and screenshot capture instructions are documented i
   optimistic locking and request entrypoint
 - `runtime_mcp.py` — AgentCore MCP server
 - `infrastructure/starter_stack.yaml` — DynamoDB, S3, IAM and logs
+- `infrastructure/observability_workers_stack.yaml` — X-Ray trace bridge that
+  emits named OrchestratorAgent-to-worker service-map edges
 - `infrastructure/setup_knowledge_bases.py` — Idempotent S3 Vectors KB setup
 - `infrastructure/seed_data.py` — Sample customers, orders and policy corpus
 - `tests/test_agent.py` — Official course test suite

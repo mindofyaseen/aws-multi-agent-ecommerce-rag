@@ -10,7 +10,7 @@ Save genuine screenshots directly into this directory (`submission/screenshots/`
 
 | Filename | AWS Console Page | Resource Demonstrated | Rubric Requirement | Status |
 |---|---|---|---|---|
-| `01_xray_service_map.png` | CloudWatch → X-Ray → Trace Map (Map view) | Genuine X-Ray service map with connected Client, AgentCore Runtime, and AWS STS nodes | Task 6 — Required X-Ray Service Map | CAPTURED |
+| `01_xray_service_map.png` | CloudWatch → X-Ray → Trace Map (Map view) | Readable Client → OrchestratorAgent → InventoryAgent graph with visible edges | Task 6 — Required named-agent X-Ray Service Map | CAPTURED |
 | `02_runtime_ready.png` | Bedrock AgentCore Runtimes | `novamart_multi_agent-XTb76lG2Mi` | Task 3 — AgentCore Deployment | CAPTURED |
 | `03_knowledge_bases.png` | Bedrock Knowledge Bases | 3 KBs (`HHE4AWZZLY`, `KX4W0TT4JJ`, `BNUVVUDQ5J`) | Task 5 — Bedrock Knowledge Bases | CAPTURED |
 | `04_memory_active.png` | Bedrock AgentCore Memory | `udacity_agentcore_memory-OBJpmLFy0a` | Task 4 — AgentCore Memory | CAPTURED |
@@ -21,7 +21,8 @@ Save genuine screenshots directly into this directory (`submission/screenshots/`
 | `09_xray_full_trajectory.png` | CloudWatch / AgentCore Observability | Expanded Orchestrator → policy retrievers → Communication trajectory | Task 6 — Required connected graph | CAPTURED |
 | `10_xray_70_span_details.png` | CloudWatch / AgentCore Observability | Trace ID, 70 spans, zero system/client errors and throttles | Task 6 — Detailed trace evidence | CAPTURED |
 | `11_xray_connected_orchestrator_workers.png` | CloudWatch / AgentCore Observability | Fresh 50-span Orchestrator → Inventory → Communication trajectory | Task 6 — Reviewer-requested delegation evidence | CAPTURED |
-| `12_xray_service_map.png` | CloudWatch → X-Ray → Trace Map (Map view) | Duplicate dedicated copy of the genuine connected X-Ray Service Map | Task 6 — Mentor-requested Service Map screenshot | CAPTURED |
+| `12_xray_service_map.png` | CloudWatch → X-Ray → Trace Map (Map view) | Duplicate dedicated copy of the readable named-agent Service Map | Task 6 — Mentor-requested Service Map screenshot | CAPTURED |
+| `13_xray_orchestrator_worker_service_map.png` | CloudWatch → X-Ray → Trace Map (Map view) | Explicit OrchestratorAgent → InventoryAgent service edge from this NovaMart project | Task 6 — Named Orchestrator-to-worker evidence | CAPTURED |
 
 ---
 
@@ -35,8 +36,10 @@ Save genuine screenshots directly into this directory (`submission/screenshots/`
 - **What Must Be Visible:**
   - Page title `Trace Map`
   - `Map view` selected
-  - Connected `Client`, `novamart_multi_agent.DEFAULT`, and `STS` nodes
-  - Visible edges between the nodes
+  - `OrchestratorAgent` node
+  - `InventoryAgent` worker node
+  - Visible connected path `Client → OrchestratorAgent → InventoryAgent`
+  - Readable labels and arrow edges
 
 #### 2. `02_runtime_ready.png`
 - **AWS Console Path:** Amazon Bedrock → AgentCore → Runtimes → `novamart_multi_agent`

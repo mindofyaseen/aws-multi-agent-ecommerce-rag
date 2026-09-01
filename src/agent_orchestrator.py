@@ -62,6 +62,24 @@ def _emit_xray_agent_edge(caller: str, worker: str, started_at: float,
     on the legacy X-Ray Service Map.  A remote subsegment is the AWS-supported
     representation of that logical service dependency.
     """
+    # When configured, invoke the project-specific X-Ray bridge. Its Lambda
+    # service nodes are named OrchestratorAgent and <Worker>Agent and use
+    # Active tracing, so the X-Ray Service Map displays the required named
+    # Orchestrator -> Worker edge for the *actual* completed delegation.
+    bridge_function = os.environ.get("XRAY_AGENT_MAP_FUNCTION", "")
+    if bridge_function:
+        try:
+            response = boto3.client("lambda", region_name=config.AWS_REGION).invoke(
+                FunctionName=bridge_function,
+                InvocationType="RequestResponse",
+                Payload=json.dumps({"worker": worker, "session_id": session_id}).encode(),
+            )
+            if response.get("FunctionError"):
+                logger.warning("X-Ray agent map bridge returned a function error for worker=%s", worker)
+        except Exception as exc:
+            logger.warning("X-Ray agent map bridge failed worker=%s error_type=%s",
+                           worker, type(exc).__name__)
+
     trace_id = f"1-{int(started_at):08x}-{uuid.uuid4().hex[:24]}"
     segment_id = uuid.uuid4().hex[:16]
     subsegment_id = uuid.uuid4().hex[:16]
