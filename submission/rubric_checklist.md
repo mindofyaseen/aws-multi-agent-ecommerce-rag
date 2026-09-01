@@ -25,6 +25,10 @@
 | **Task 6: CloudWatch & X-Ray Observability** | `src/agent_orchestrator.py` (`configure_observability`), `runtime_mcp.py`, `src/agent_utils.py` | Log group `/aws/bedrock/agentcore/udacity-agentcore`, Service `novamart_multi_agent.DEFAULT` | Live trace `6a95b4211d7df5dd07e3e8687b916946` contains 70 spans and the full Orchestrator → Policy → 3 retrievers → Communication chain. The supplied Task 6 checker calls an operation absent from boto3 1.43.83; see `submission/resubmission_fixes.md`. | **Live verified; course checker incompatible** | `01_xray_service_map.png` & `08_xray_trace_details.png`; expanded trace capture preferred |
 | **Live End-to-End Execution** | `src/agent_orchestrator.py`, `runtime_mcp.py` | Full deployed AWS stack | Live scenarios A, B, C, D, E executed successfully; evidence in `submission/live_test_results.md` | **Verified** | `07_live_runtime_test.png` (CAPTURED) |
 
+Fresh read-only AWS CLI verification of all three S3 Vectors configurations
+and the X-Ray service graph is included in
+`submission/cli_verification_2026-09-01.md`.
+
 ---
 
 ## Status Key
