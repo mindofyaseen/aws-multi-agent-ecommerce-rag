@@ -66,7 +66,7 @@ the matching `policies/returns/`, `policies/shipping/`, or
 ### Course test compatibility note
 
 The supplied Task 4 and Task 6 tests call SDK methods that do not exist in the
-installed/current boto3 service models (`bedrock-agentcore.get_agent_runtime`
+latest checked boto3 `1.43.85` service models (`bedrock-agentcore.get_agent_runtime`
 on the data-plane client and
 `get_agent_runtime_logging_configuration`/`put_agent_runtime_logging_configuration`
 on the control-plane client). Therefore those two test checks raise

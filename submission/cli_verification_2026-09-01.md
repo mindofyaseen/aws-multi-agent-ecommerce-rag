@@ -54,7 +54,6 @@ Run with the repository virtual environment and `PYTHONUTF8=1`:
   `runtime_mcp.py`.
 
 Task 4 and Task 6 course checks currently call boto3 methods that are absent
-from the installed boto3 `1.43.83` service models. This SDK compatibility issue
+from the latest checked boto3 `1.43.85` service models. This SDK compatibility issue
 and the independently verified live resources are explained in
 `resubmission_fixes.md`.
-

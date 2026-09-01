@@ -48,14 +48,14 @@ Run test suites:
 # 1. Official course test suite
 python tests/test_agent.py all
 
-# 2. Modern AWS API test suite (boto3 1.43.83+)
+# 2. Modern AWS API test suite (boto3 1.43.85+)
 python tests/test_current_api.py
 ```
 
 The bundled course test reports 85/120 (100% of non-deprecated tests passing).
 Its remaining checks call `bedrock-agentcore.get_agent_runtime()` and
 `get_agent_runtime_logging_configuration()`, preview operations that do not exist
-in current boto3 1.43.83. Modern AWS Bedrock APIs verify memory and runtime via
+in current boto3 1.43.85. Modern AWS Bedrock APIs verify memory and runtime via
 `bedrock-agentcore-control`, validated with 100% pass rate in `tests/test_current_api.py`.
 
 ## Screenshots
