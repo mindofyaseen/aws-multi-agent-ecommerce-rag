@@ -21,6 +21,12 @@ retriever agents/tools → `route_to_communication_agent` →
 
 This is the end-to-end specialist call chain required by Task 6.
 
+A final fresh live Runtime call on 2026-09-01 produced trace
+`6a96c2fc39511ef3381f28f30de7cea4`. The AWS Console reports 70 spans,
+20,087 tokens, zero system errors, zero client errors, and zero throttles. The
+expanded trajectory and metrics screenshots are included as
+`09_xray_full_trajectory.png` and `10_xray_70_span_details.png`.
+
 ---
 
 | Trace ID | Service Name | HTTP Status | Duration (s) | Response Time (s) | Fault/Error |

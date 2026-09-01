@@ -57,6 +57,11 @@ the matching `policies/returns/`, `policies/shipping/`, or
   `PolicyAgent`, `search_all_policies`, all three named policy retriever agents
   and tools, `route_to_communication_agent`, `CommunicationAgent`, and
   `get_full_workflow_context`.
+- Final screenshot refresh used live Runtime trace
+  `6a96c2fc39511ef3381f28f30de7cea4`: 70 spans, 20,087 tokens,
+  zero system errors, zero client errors, and zero throttles. The expanded
+  trajectory is committed as `submission/screenshots/09_xray_full_trajectory.png`;
+  its metrics page is `10_xray_70_span_details.png`.
 
 ### Course test compatibility note
 

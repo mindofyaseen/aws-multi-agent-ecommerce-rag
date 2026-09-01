@@ -18,6 +18,8 @@ Save genuine screenshots directly into this directory (`submission/screenshots/`
 | `06_workflow_state.png` | DynamoDB Table Item Explorer | `udacity-agentcore-workflow-state` | Task 2 — Optimistic Locking | CAPTURED |
 | `07_live_runtime_test.png` | AgentCore Runtime Test UI | MCP `customer_support` invocation | Live System Demonstration | CAPTURED |
 | `08_xray_trace_details.png` | CloudWatch / X-Ray Traces | Fresh HTTP 200 runtime traces | Task 6 — Trace-list evidence | CAPTURED |
+| `09_xray_full_trajectory.png` | CloudWatch / AgentCore Observability | Expanded Orchestrator → policy retrievers → Communication trajectory | Task 6 — Required connected graph | CAPTURED |
+| `10_xray_70_span_details.png` | CloudWatch / AgentCore Observability | Trace ID, 70 spans, zero system/client errors and throttles | Task 6 — Detailed trace evidence | CAPTURED |
 
 ---
 
@@ -105,6 +107,10 @@ Save genuine screenshots directly into this directory (`submission/screenshots/`
     `CommunicationAgent`, and their associated tool spans
   - Total duration and zero system/client errors
 
-The committed screenshot is genuine trace-list evidence. Before resubmission, a
-single expanded trace-detail capture of the verified trace above is preferred
-because it makes the complete worker chain visible to the reviewer at a glance.
+The original committed screenshot is genuine trace-list evidence. The newer
+`09_xray_full_trajectory.png` and `10_xray_70_span_details.png` are the primary
+resubmission evidence and use fresh trace
+`6a96c2fc39511ef3381f28f30de7cea4`. The expanded trajectory visibly connects
+the Runtime to `OrchestratorAgent`, all three policy-retriever agents, and
+`CommunicationAgent`; its detail page reports 70 spans and zero errors or
+throttles.

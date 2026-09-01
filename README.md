@@ -70,6 +70,8 @@ in current boto3 1.43.83. Modern AWS Bedrock APIs verify memory and runtime via
 | **06. DynamoDB WorkflowState** | Optimistic locking version tracking & worker outputs | [View Screenshot](submission/screenshots/06_workflow_state.png) |
 | **07. Live Runtime Test** | Grounded return / refund response | [View Screenshot](submission/screenshots/07_live_runtime_test.png) |
 | **08. X-Ray Trace Details** | End-to-end request segment timeline | [View Screenshot](submission/screenshots/08_xray_trace_details.png) |
+| **09. Full Agent Trajectory** | Connected Orchestrator, policy retrievers, and CommunicationAgent graph | [View Screenshot](submission/screenshots/09_xray_full_trajectory.png) |
+| **10. 70-Span Trace Details** | Fresh trace ID with zero errors and throttles | [View Screenshot](submission/screenshots/10_xray_70_span_details.png) |
 
 Detailed console navigation and screenshot capture instructions are documented in
 [`submission/screenshots/README.md`](submission/screenshots/README.md).
