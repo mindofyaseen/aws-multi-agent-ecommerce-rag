@@ -7,6 +7,22 @@
 
 ---
 
+## Full multi-agent trace verification
+
+A fresh post-fix policy request produced trace
+`6a95b4211d7df5dd07e3e8687b916946`. AgentCore Observability reports **70
+spans**, zero system/client errors, and zero throttles. The expanded trace was
+inspected in the AWS Console and contains the complete chain:
+
+`OrchestratorAgent` → `initialize_session` → `route_to_policy_agent` →
+`PolicyAgent` → `search_all_policies` → the Returns, Shipping, and Warranty
+retriever agents/tools → `route_to_communication_agent` →
+`CommunicationAgent` → `get_full_workflow_context`.
+
+This is the end-to-end specialist call chain required by Task 6.
+
+---
+
 | Trace ID | Service Name | HTTP Status | Duration (s) | Response Time (s) | Fault/Error |
 |---|---|---|---|---|---|
 | `1-6a957464-b1df7e1ceaace6d65bf26ebf` | `novamart_multi_agent.DEFAULT` | `200` | `0.0030` | `0.0030` | `False` |

@@ -51,6 +51,12 @@ the matching `policies/returns/`, `policies/shipping/`, or
 - Live Runtime: version 8, status READY, PUBLIC network, MCP protocol
 - Fresh MCP policy invocation: HTTP/runtime success with grounded Premium
   60-day return policy and CommunicationAgent final response
+- Fresh AgentCore Observability trace `6a95b4211d7df5dd07e3e8687b916946`:
+  **70 spans**, zero system/client errors and zero throttles. The expanded trace
+  includes `OrchestratorAgent`, `initialize_session`, `route_to_policy_agent`,
+  `PolicyAgent`, `search_all_policies`, all three named policy retriever agents
+  and tools, `route_to_communication_agent`, `CommunicationAgent`, and
+  `get_full_workflow_context`.
 
 ### Course test compatibility note
 
@@ -65,4 +71,3 @@ ACTIVE with a seven-day summarization strategy, and deployment explicitly
 reports CloudWatch Logs plus X-Ray trace delivery enabled. The required
 `put_agent_runtime_logging_configuration()` call remains implemented for the
 course contract and will execute when that SDK operation is available.
-

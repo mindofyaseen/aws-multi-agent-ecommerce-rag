@@ -22,7 +22,7 @@
 | **Task 3: AgentCore Runtime Deployment** | `runtime_mcp.py`, `.bedrock_agentcore.yaml` | Runtime `novamart_multi_agent-XTb76lG2Mi` | Status: `READY`, Protocol: `MCP`, Network: `PUBLIC`; MCP tool `customer_support` exposed; live invocations return 200 OK | **Verified** | `02_runtime_ready.png` (CAPTURED) |
 | **Task 4: AgentCore Memory Integration** | `src/agent_orchestrator.py` (`record_memory_event`) | Memory `udacity_agentcore_memory-OBJpmLFy0a` | Status: `ACTIVE`, 7-day retention, `SUMMARIZATION` strategy (`udacity_agentcore_memory_summary`); verified in `submission/memory_test_results.md` | **Verified** | `04_memory_active.png` (CAPTURED) |
 | **Task 5: Bedrock Knowledge Bases (Returns, Shipping, Warranty)** | `infrastructure/setup_knowledge_bases.py`, `src/bedrock_kb_retrieval.py` | KBs `HHE4AWZZLY`, `KX4W0TT4JJ`, `BNUVVUDQ5J` | S3 Vectors backing store, Titan Text Embeddings v2, all 3 KBs `ACTIVE` and synced; grounded retrieval verified in `submission/kb_retrieval_results.md` | **Verified** | `03_knowledge_bases.png` (CAPTURED) |
-| **Task 6: CloudWatch & X-Ray Observability** | `runtime_mcp.py`, `src/agent_utils.py` | Log group `/aws/bedrock/agentcore/udacity-agentcore`, Service `novamart_multi_agent.DEFAULT` | Real X-Ray traces active, including fresh HTTP 200 invocations; verified in `submission/xray_trace_results.md` | **Verified** | `01_xray_service_map.png` & `08_xray_trace_details.png` (CAPTURED) |
+| **Task 6: CloudWatch & X-Ray Observability** | `src/agent_orchestrator.py` (`configure_observability`), `runtime_mcp.py`, `src/agent_utils.py` | Log group `/aws/bedrock/agentcore/udacity-agentcore`, Service `novamart_multi_agent.DEFAULT` | Live trace `6a95b4211d7df5dd07e3e8687b916946` contains 70 spans and the full Orchestrator → Policy → 3 retrievers → Communication chain. The supplied Task 6 checker calls an operation absent from boto3 1.43.83; see `submission/resubmission_fixes.md`. | **Live verified; course checker incompatible** | `01_xray_service_map.png` & `08_xray_trace_details.png`; expanded trace capture preferred |
 | **Live End-to-End Execution** | `src/agent_orchestrator.py`, `runtime_mcp.py` | Full deployed AWS stack | Live scenarios A, B, C, D, E executed successfully; evidence in `submission/live_test_results.md` | **Verified** | `07_live_runtime_test.png` (CAPTURED) |
 
 ---
@@ -31,4 +31,6 @@
 - **Complete:** All code, infrastructure, and configuration implemented.
 - **Verified:** Tested and confirmed working against live AWS resources in `us-east-1`.
 - **Captured:** Genuine AWS console screenshot is included in `submission/screenshots/`.
-- **Blocked:** None. Zero blockers.
+- **Compatibility note:** Task 4 and Task 6 course checks use SDK operations
+  absent from boto3 1.43.83. Live Memory and Observability resources were
+  independently verified; details are recorded in `resubmission_fixes.md`.

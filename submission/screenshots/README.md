@@ -17,7 +17,7 @@ Save genuine screenshots directly into this directory (`submission/screenshots/`
 | `05_guardrail.png` | Bedrock Guardrails | `udacity-agentcore-guardrail` (`o5xeg6zlw97l` v1) | Task 3 — Bedrock Guardrails | CAPTURED |
 | `06_workflow_state.png` | DynamoDB Table Item Explorer | `udacity-agentcore-workflow-state` | Task 2 — Optimistic Locking | CAPTURED |
 | `07_live_runtime_test.png` | AgentCore Runtime Test UI | MCP `customer_support` invocation | Live System Demonstration | CAPTURED |
-| `08_xray_trace_details.png` | CloudWatch / X-Ray Traces | Fresh HTTP 200 runtime traces | Task 6 — Detailed Trace Breakdown | CAPTURED |
+| `08_xray_trace_details.png` | CloudWatch / X-Ray Traces | Fresh HTTP 200 runtime traces | Task 6 — Trace-list evidence | CAPTURED |
 
 ---
 
@@ -97,8 +97,14 @@ Save genuine screenshots directly into this directory (`submission/screenshots/`
 - **AWS Console Path:** CloudWatch → X-Ray traces → Traces → Click on a trace ID
 - **URL:** [X-Ray Traces](https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#xray:traces)
 - **Region:** `us-east-1`
-- **Trace ID:** e.g. `1-6a957407-448fd6b623e66f7faa6d7658` or `1-6a956f64-b232ce5339c59ee88cdd2302`
+- **Verified full-chain trace ID:** `6a95b4211d7df5dd07e3e8687b916946`
 - **What Must Be Visible:**
   - Trace ID header
-  - Segment timeline for `novamart_multi_agent.DEFAULT` (HTTP 200)
-  - Total duration & response code
+  - Span count (`70`) and successful status
+  - `OrchestratorAgent`, `PolicyAgent`, all three named policy retrievers,
+    `CommunicationAgent`, and their associated tool spans
+  - Total duration and zero system/client errors
+
+The committed screenshot is genuine trace-list evidence. Before resubmission, a
+single expanded trace-detail capture of the verified trace above is preferred
+because it makes the complete worker chain visible to the reviewer at a glance.
