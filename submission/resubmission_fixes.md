@@ -3,6 +3,17 @@
 This revision directly addresses the two remaining requirements from the
 September 1 review: the Task 6 automated test and connected agent tracing.
 
+## Mentor-requested X-Ray Service Map evidence
+
+Following the latest mentor feedback, `submission/screenshots/01_xray_service_map.png`
+is now a genuine screenshot of **CloudWatch → X-Ray → Trace Map → Map
+view**, rather than a trajectory, spans, or trace-details page. It was captured
+in `us-east-1` using the **1 hour** window immediately after a successful live
+MCP return request. The map visibly connects the Client, the deployed
+`novamart_multi_agent.DEFAULT` AgentCore Runtime, and AWS STS. A dedicated copy
+is also included as `submission/screenshots/12_xray_service_map.png` so the
+required evidence is unmistakable to the reviewer.
+
 ## Code corrections
 
 - Refund eligibility now reads the customer tier and order date from DynamoDB.
