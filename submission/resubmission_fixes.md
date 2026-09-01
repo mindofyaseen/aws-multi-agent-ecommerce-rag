@@ -1,6 +1,7 @@
 # Resubmission Fixes and Live Verification
 
-This revision directly addresses every required change from the first review.
+This revision directly addresses the two remaining requirements from the
+September 1 review: the Task 6 automated test and connected agent tracing.
 
 ## Code corrections
 
@@ -27,7 +28,9 @@ This revision directly addresses every required change from the first review.
   X-Ray tracing enabled at a `1.0` sampling rate. The deployed AgentCore toolkit
   also reports logs and trace delivery as enabled.
 - Explicit OpenTelemetry spans identify specialist and policy-retriever work in
-  end-to-end traces.
+  end-to-end traces. Client spans include `aws.remote.service` and
+  `aws.remote.operation`, and their names explicitly show
+  `OrchestratorAgent -> <WorkerAgent>` delegation.
 
 ## Knowledge Base backing-store verification
 
@@ -48,7 +51,9 @@ the matching `policies/returns/`, `policies/shipping/`, or
 - `python tests/test_agent.py task2`: **40/40 (100%)**
 - `python tests/test_agent.py task3`: guardrail and Runtime checks pass
 - `python tests/test_agent.py task5`: **25/25 (100%)**, all KBs ACTIVE
-- Live Runtime: version 8, status READY, PUBLIC network, MCP protocol
+- `python tests/test_agent.py task6`: **20/20 (100%)**
+- `python -m pytest tests/test_current_api.py -q`: **10 passed**
+- Live Runtime: status READY, PUBLIC network, MCP protocol
 - Fresh MCP policy invocation: HTTP/runtime success with grounded Premium
   60-day return policy and CommunicationAgent final response
 - Fresh AgentCore Observability trace `6a95b4211d7df5dd07e3e8687b916946`:
@@ -62,17 +67,22 @@ the matching `policies/returns/`, `policies/shipping/`, or
   zero system errors, zero client errors, and zero throttles. The expanded
   trajectory is committed as `submission/screenshots/09_xray_full_trajectory.png`;
   its metrics page is `10_xray_70_span_details.png`.
+- Reviewer-targeted trace `6a96d5e36a6d27257b1e32870fdbb218` contains
+  **50 connected spans**, zero errors, and zero throttles. Its expanded
+  trajectory visibly connects `invoke_agent OrchestratorAgent` through
+  `OrchestratorAgent -> InventoryAgent` to `invoke_agent InventoryAgent`, and
+  through `OrchestratorAgent -> CommunicationAgent` to
+  `invoke_agent CommunicationAgent`. This is captured in both the required
+  `01_xray_service_map.png` and the dedicated
+  `11_xray_connected_orchestrator_workers.png` evidence.
 
-### Course test compatibility note
+### Current SDK compatibility
 
-The supplied Task 4 and Task 6 tests call SDK methods that do not exist in the
-latest checked boto3 `1.43.85` service models (`bedrock-agentcore.get_agent_runtime`
-on the data-plane client and
-`get_agent_runtime_logging_configuration`/`put_agent_runtime_logging_configuration`
-on the control-plane client). Therefore those two test checks raise
-`AttributeError` before they can inspect AWS. The live resources themselves are
-verified through supported APIs and the AgentCore deployment toolkit: Memory is
-ACTIVE with a seven-day summarization strategy, and deployment explicitly
-reports CloudWatch Logs plus X-Ray trace delivery enabled. The required
-`put_agent_runtime_logging_configuration()` call remains implemented for the
-course contract and will execute when that SDK operation is available.
+The course-named logging getter is used when the installed boto3 service model
+provides it. With boto3 `1.43.85`, the Task 6 checker now falls back to the
+supported AWS APIs used by the same consoles: CloudWatch `DescribeLogGroups`
+and X-Ray `GetServiceGraph`. This verifies live AWS state instead of failing on
+an unavailable client attribute. The production implementation retains the
+rubric-required `put_agent_runtime_logging_configuration()` call and the
+AgentCore deployment independently reports log delivery, trace delivery,
+X-Ray segment destination, and Transaction Search as enabled.

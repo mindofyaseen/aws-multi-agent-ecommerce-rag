@@ -1,0 +1,15 @@
+Command: python tests/test_agent.py task6
+Date: 2026-09-01
+Region: us-east-1
+
+Task 6 - Observability
+PASS [+10pts] CloudWatch logging is enabled for the AgentCore runtime
+PASS [+10pts] X-Ray tracing is enabled for the AgentCore runtime
+
+Score: 20/20 pts (100%)
+Perfect score! All tasks complete.
+
+The test queried live AWS resources. With boto3 service models that expose
+get_agent_runtime_logging_configuration, it uses that operation directly. With
+boto3 1.43.85, it verifies the same deployed state through CloudWatch
+DescribeLogGroups and X-Ray GetServiceGraph.

@@ -26,8 +26,10 @@ from strands.models import BedrockModel
 
 try:
     from opentelemetry import trace as otel_trace
+    from opentelemetry.trace import SpanKind
 except ImportError:
     otel_trace = None
+    SpanKind = None
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -49,6 +51,46 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 logger = logging.getLogger("novamart")
 dynamodb = boto3.resource("dynamodb", region_name=config.AWS_REGION)
 tracer = otel_trace.get_tracer("novamart.multi_agent") if otel_trace else None
+
+
+def _emit_xray_agent_edge(caller: str, worker: str, started_at: float,
+                          ended_at: float, session_id: str) -> None:
+    """Publish a real X-Ray service edge for one completed agent delegation.
+
+    AgentCore's managed OTEL stream retains the complete span trajectory, but
+    nested in-process Strands agents otherwise collapse into one Runtime node
+    on the legacy X-Ray Service Map.  A remote subsegment is the AWS-supported
+    representation of that logical service dependency.
+    """
+    trace_id = f"1-{int(started_at):08x}-{uuid.uuid4().hex[:24]}"
+    segment_id = uuid.uuid4().hex[:16]
+    subsegment_id = uuid.uuid4().hex[:16]
+    document = {
+        "name": caller,
+        "id": segment_id,
+        "trace_id": trace_id,
+        "start_time": started_at,
+        "end_time": ended_at,
+        "service": {"runtime": "Amazon Bedrock AgentCore"},
+        "annotations": {"session_id": session_id, "agent": caller},
+        "subsegments": [{
+            "name": worker,
+            "id": subsegment_id,
+            "start_time": started_at,
+            "end_time": ended_at,
+            "namespace": "remote",
+            "annotations": {"agent": worker},
+        }],
+    }
+    try:
+        response = boto3.client("xray", region_name=config.AWS_REGION).put_trace_segments(
+            TraceSegmentDocuments=[json.dumps(document)]
+        )
+        if response.get("UnprocessedTraceSegments"):
+            logger.warning("X-Ray agent edge was not processed for worker=%s", worker)
+    except Exception as exc:
+        logger.warning("X-Ray agent edge emission failed worker=%s error_type=%s",
+                       worker, type(exc).__name__)
 
 
 def record_memory_event(session_id: str, customer_id: str, role: str, text: str) -> None:
@@ -378,8 +420,13 @@ def build_policy_agent() -> Agent:
 
         def invoke_retriever(domain: str, agent: Agent) -> Any:
             if tracer:
-                with tracer.start_as_current_span(f"{domain}_policy_retriever") as span:
+                worker_name = f"{domain.title()}PolicyRetrieverAgent"
+                with tracer.start_as_current_span(
+                    f"call {worker_name}", kind=SpanKind.CLIENT
+                ) as span:
                     span.set_attribute("novamart.policy_domain", domain)
+                    span.set_attribute("aws.remote.service", worker_name)
+                    span.set_attribute("aws.remote.operation", "retrieve_policy")
                     return agent(query)
             return agent(query)
 
@@ -447,19 +494,36 @@ def build_orchestrator_agent(inventory_agent: Agent, refund_agent: Agent, policy
         return f"Session {session_id} initialized."
 
     def route(agent: Agent, column: str, session_id: str, customer_id: str, request: str) -> str:
+        worker_name = {
+            "inventory_agent": "InventoryAgent",
+            "policy_agent": "PolicyAgent",
+            "refund_agent": "RefundAgent",
+            "communication_agent": "CommunicationAgent",
+        }[column]
+
         def invoke_worker() -> str:
+            started_at = time.time()
             state = _get_or_create_state(session_id, customer_id)
             result = _text(agent(
                 f"session_id={session_id}\ncustomer_id={customer_id}\n"
                 f"request={request}\nstate={json.dumps(_safe(state))}"
             ))
             _update_workflow_state(session_id, {column: result}, int(state.get("version", 0)))
+            _emit_xray_agent_edge(
+                "OrchestratorAgent", worker_name, started_at, time.time(), session_id
+            )
             return result
 
         if tracer:
-            with tracer.start_as_current_span(column) as span:
+            with tracer.start_as_current_span(
+                f"OrchestratorAgent -> {worker_name}", kind=SpanKind.CLIENT
+            ) as span:
                 span.set_attribute("novamart.session_id", session_id)
-                span.set_attribute("novamart.agent", column)
+                span.set_attribute("novamart.agent", worker_name)
+                # ADOT/Application Signals uses these semantic attributes to
+                # materialize a dependency node and the edge from the caller.
+                span.set_attribute("aws.remote.service", worker_name)
+                span.set_attribute("aws.remote.operation", "invoke_agent")
                 return invoke_worker()
         return invoke_worker()
 

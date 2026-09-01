@@ -10,7 +10,7 @@ Save genuine screenshots directly into this directory (`submission/screenshots/`
 
 | Filename | AWS Console Page | Resource Demonstrated | Rubric Requirement | Status |
 |---|---|---|---|---|
-| `01_xray_service_map.png` | CloudWatch / X-Ray Service Map | `novamart_multi_agent.DEFAULT` | Task 6 — Observability & Tracing | CAPTURED |
+| `01_xray_service_map.png` | CloudWatch / AgentCore Observability trajectory | Connected Orchestrator → worker graph | Task 6 — Required connected graph | CAPTURED |
 | `02_runtime_ready.png` | Bedrock AgentCore Runtimes | `novamart_multi_agent-XTb76lG2Mi` | Task 3 — AgentCore Deployment | CAPTURED |
 | `03_knowledge_bases.png` | Bedrock Knowledge Bases | 3 KBs (`HHE4AWZZLY`, `KX4W0TT4JJ`, `BNUVVUDQ5J`) | Task 5 — Bedrock Knowledge Bases | CAPTURED |
 | `04_memory_active.png` | Bedrock AgentCore Memory | `udacity_agentcore_memory-OBJpmLFy0a` | Task 4 — AgentCore Memory | CAPTURED |
@@ -20,20 +20,23 @@ Save genuine screenshots directly into this directory (`submission/screenshots/`
 | `08_xray_trace_details.png` | CloudWatch / X-Ray Traces | Fresh HTTP 200 runtime traces | Task 6 — Trace-list evidence | CAPTURED |
 | `09_xray_full_trajectory.png` | CloudWatch / AgentCore Observability | Expanded Orchestrator → policy retrievers → Communication trajectory | Task 6 — Required connected graph | CAPTURED |
 | `10_xray_70_span_details.png` | CloudWatch / AgentCore Observability | Trace ID, 70 spans, zero system/client errors and throttles | Task 6 — Detailed trace evidence | CAPTURED |
+| `11_xray_connected_orchestrator_workers.png` | CloudWatch / AgentCore Observability | Fresh 50-span Orchestrator → Inventory → Communication trajectory | Task 6 — Reviewer-requested delegation evidence | CAPTURED |
 
 ---
 
 ### Detailed Capture Instructions
 
 #### 1. `01_xray_service_map.png` (Required)
-- **AWS Console Path:** CloudWatch → X-Ray traces → Service map  
-- **URL:** [X-Ray Service Map](https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#xray:service-map) or [GenAI Observability](https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#gen-ai-observability/agent-core)
+- **AWS Console Path:** CloudWatch → GenAI Observability → Bedrock AgentCore → All traces → Expand trajectory  
+- **URL:** [GenAI Observability](https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#gen-ai-observability/agent-core)
 - **Region:** `us-east-1`
 - **Time Range:** Select **1 hour** or **3 hours** (containing recent live requests)
 - **What Must Be Visible:**
-  - Service node `novamart_multi_agent.DEFAULT`
-  - Connected client / service edges with 100% 200 OK responses
-  - Service latency & throughput stats
+  - `invoke_agent OrchestratorAgent`
+  - Visible edge `OrchestratorAgent -> InventoryAgent`
+  - `invoke_agent InventoryAgent`
+  - Visible edge `OrchestratorAgent -> CommunicationAgent`
+  - `invoke_agent CommunicationAgent`
 
 #### 2. `02_runtime_ready.png`
 - **AWS Console Path:** Amazon Bedrock → AgentCore → Runtimes → `novamart_multi_agent`
